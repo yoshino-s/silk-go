@@ -621,10 +621,12 @@ static int32_t silk_encode_silk_impl(
 			return SILK_SDK_ERR_ENCODE;
 		}
 
-		packetSize_ms = (SKP_int)((1000 * (SKP_int32)encControl.packetSize) / encControl.API_sampleRate);
 		smplsSinceLastPacket += need;
 
-		if (((1000 * smplsSinceLastPacket) / API_fs_Hz) == packetSize_ms) {
+		/* Compare accumulated samples to encControl.packetSize (samples per packet) after Encode.
+		   Encoder.c used ms equality on truncated values, which can miss a flush when packetSize
+		   in samples and (smpls*1000/API_fs) disagree by 1 ms — yielding empty or tiny output. */
+		if (encControl.packetSize > 0 && smplsSinceLastPacket >= encControl.packetSize) {
 			ge = append_i16le(&bits, nBytes);
 			if (ge) {
 				free(psEnc);

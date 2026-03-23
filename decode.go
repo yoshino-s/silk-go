@@ -23,12 +23,12 @@ type EncodeOptions struct {
 	// 0 lets encoder pick default target rate.
 	TargetBitrateBps int32
 	// Packet interval in ms; 0 means 20.
-	PacketSizeMs int32
+	PacketSizeMs      int32
 	PacketLossPercent int32
 	// 0 = kn007 default (high / SKP complexity 2). 1 or 2 = SKP medium or high. Use ComplexityLow for SKP low (0).
-	Complexity   int32
-	UseInbandFEC int32 // 0/1
-	UseDTX       int32 // 0/1
+	Complexity    int32
+	UseInbandFEC  int32 // 0/1
+	UseDTX        int32 // 0/1
 	TencentCompat int32 // 0/1 — prepend STX for WeChat/QQ style header
 }
 

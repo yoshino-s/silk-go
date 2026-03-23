@@ -1290,9 +1290,11 @@ func silk_encode_silk_impl(tls *libc.TLS, pcm_s16le uintptr, pcm_byte_len size_t
 			gb_free(tls, bp+10924)
 			return int32(SILK_SDK_ERR_ENCODE)
 		}
-		packetSize_ms = libc.Int32FromInt32(1000) * (*(*SKP_SILK_SDK_EncControlStruct)(unsafe.Pointer(bp + 10860))).FpacketSize / (*(*SKP_SILK_SDK_EncControlStruct)(unsafe.Pointer(bp + 10860))).FAPI_sampleRate
 		smplsSinceLastPacket = smplsSinceLastPacket + need
-		if int32(1000)*smplsSinceLastPacket/API_fs_Hz == packetSize_ms {
+		/* Compare accumulated samples to encControl.packetSize (samples per packet) after Encode.
+		   Encoder.c used ms equality on truncated values, which can miss a flush when packetSize
+		   in samples and (smpls*1000/API_fs) disagree by 1 ms — yielding empty or tiny output. */
+		if (*(*SKP_SILK_SDK_EncControlStruct)(unsafe.Pointer(bp + 10860))).FpacketSize > 0 && smplsSinceLastPacket >= (*(*SKP_SILK_SDK_EncControlStruct)(unsafe.Pointer(bp + 10860))).FpacketSize {
 			ge = append_i16le(tls, bp+10924, *(*int16)(unsafe.Pointer(bp + 10856)))
 			if ge != 0 {
 				libc.Xfree(tls, psEnc)

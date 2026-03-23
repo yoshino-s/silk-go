@@ -68,31 +68,42 @@ func EncodeSILK(
 	if len(pcm)%2 != 0 {
 		return nil, fmt.Errorf("silkcc: %w", ErrOddPCM)
 	}
-	tls := libc.NewTLS()
-	var outPtr uintptr
-	var outLen size_t
-	rc := silk_encode_silk(tls,
-		uintptr(unsafe.Pointer(&pcm[0])), size_t(len(pcm)),
-		uintptr(unsafe.Pointer(&outPtr)), uintptr(unsafe.Pointer(&outLen)),
-		apiFsHz, maxInternalFsHz, targetRateBps, packetSizeMs, packetLossPerc,
-		complexity, useInbandFEC, useDTX, tencentCompat,
-	)
-	runtime.KeepAlive(pcm)
-	if rc != 0 {
-		return nil, statusError(rc)
+	const encodeAttempts = 3
+	for attempt := 0; attempt < encodeAttempts; attempt++ {
+		tls := libc.NewTLS()
+		var outPtr uintptr
+		var outLen size_t
+		rc := silk_encode_silk(tls,
+			uintptr(unsafe.Pointer(&pcm[0])), size_t(len(pcm)),
+			uintptr(unsafe.Pointer(&outPtr)), uintptr(unsafe.Pointer(&outLen)),
+			apiFsHz, maxInternalFsHz, targetRateBps, packetSizeMs, packetLossPerc,
+			complexity, useInbandFEC, useDTX, tencentCompat,
+		)
+		runtime.KeepAlive(pcm)
+		if rc != 0 {
+			return nil, statusError(rc)
+		}
+		if outPtr == 0 || outLen == 0 {
+			if outPtr != 0 {
+				silk_sdk_free(tls, outPtr)
+			}
+			if attempt == encodeAttempts-1 {
+				return nil, fmt.Errorf("silkcc: %w", ErrEmptyOutput)
+			}
+			continue
+		}
+		out := make([]byte, int(outLen))
+		copy(out, unsafe.Slice((*byte)(unsafe.Pointer(outPtr)), int(outLen)))
+		silk_sdk_free(tls, outPtr)
+		return out, nil
 	}
-	if outPtr == 0 {
-		return nil, nil
-	}
-	out := make([]byte, int(outLen))
-	copy(out, unsafe.Slice((*byte)(unsafe.Pointer(outPtr)), int(outLen)))
-	silk_sdk_free(tls, outPtr)
-	return out, nil
+	return nil, fmt.Errorf("silkcc: %w", ErrEmptyOutput)
 }
 
 var (
-	ErrEmptyInput = errors.New("empty input buffer")
-	ErrOddPCM     = errors.New("pcm byte length must be even")
+	ErrEmptyInput  = errors.New("empty input buffer")
+	ErrOddPCM      = errors.New("pcm byte length must be even")
+	ErrEmptyOutput = errors.New("encoder returned success with empty output")
 )
 
 func statusError(rc int32) error {

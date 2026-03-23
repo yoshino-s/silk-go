@@ -15,6 +15,17 @@ import (
 	"github.com/yoshino-s/silk-go"
 )
 
+func TestEncodePCMFirstCallNonEmpty(t *testing.T) {
+	pcm := syntheticSinePCM(24000, 1, 440, 8000)
+	out, err := silk.EncodePCM(pcm, silk.EncodeOptions{SampleRateHz: 24000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) == 0 {
+		t.Fatal("first EncodePCM in process returned empty output with nil error")
+	}
+}
+
 func TestRoundTripSyntheticPCM(t *testing.T) {
 	const sampleRate = 24000
 	const seconds = 3
